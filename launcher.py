@@ -6,11 +6,13 @@ import os
 from pathlib import Path
 
 def main():
-    # Pour PyInstaller : lancer depuis le dossier du .exe
-    base_dir = Path(sys.executable).resolve().parent
+    # Empêche de relancer plusieurs fois le navigateur
+    marker_file = Path("browser_opened.marker")
+
+    base_dir = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
     os.chdir(base_dir)
 
-    # Lancer le serveur uvicorn
+    # Lancer uvicorn SANS reload (très important)
     server = subprocess.Popen(
         [
             sys.executable,
@@ -19,18 +21,22 @@ def main():
             "main:app",
             "--host", "127.0.0.1",
             "--port", "8000",
+            "--no-reload",         # 🔥 empêche le reloader (cause des boucles)
+            "--log-level", "warning"
         ],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
 
-    # Donne 1-2 secondes au serveur pour démarrer
+    # Attendre que le serveur soit prêt
     time.sleep(2)
 
-    # Ouvre automatiquement le navigateur
-    webbrowser.open("http://127.0.0.1:8000")
+    # Ouvrir le navigateur UNE SEULE FOIS
+    if not marker_file.exists():
+        webbrowser.open("http://127.0.0.1:8000")
+        marker_file.touch()
 
-    # Maintient l’application active
+    # Maintenir le processus
     try:
         server.wait()
     except KeyboardInterrupt:
